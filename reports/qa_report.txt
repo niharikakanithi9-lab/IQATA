@@ -1,7 +1,7 @@
 ==================================================
 INTELLIGENT QA AUTOMATION REPORT
 ==================================================
-Generated On : 2026-07-09 19:40:00.025644
+Generated On : 2026-07-09 21:35:32.249809
 
 TEST SUMMARY
 --------------------------------------------------
@@ -17,7 +17,7 @@ LATEST AUTOMATION TESTS
 
 AI DEFECT PREDICTION
 --------------------------------------------------
-Checkout Test : LOW RISK (21.0% failure probability)
+Checkout Test : AI prediction unavailable (model.pkl failed to load — check numpy/scikit-learn versions)
 --------------------------------------------------
 Login Test         PASS   12.04 sec
 Search Test        PASS   9.19 sec
