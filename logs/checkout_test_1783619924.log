@@ -1,0 +1,6 @@
+Test          : Checkout Test
+Status        : FAIL
+Execution time: 21.67 sec
+Timestamp     : 2026-07-09 23:28:44.883966
+----------------------------------------
+Failure reason: Test reported FAIL without raising an exception.

@@ -1,0 +1,6 @@
+Test          : Login Test
+Status        : FAIL
+Execution time: 13.22 sec
+Timestamp     : 2026-07-09 22:40:09.656451
+----------------------------------------
+Failure reason: Test reported FAIL without raising an exception.

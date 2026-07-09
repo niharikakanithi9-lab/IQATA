@@ -49,7 +49,6 @@ except Exception:
 # Safe imports from YOUR modules — each wrapped so one
 # broken module doesn't crash the whole dashboard.
 # -------------------------------------------------
-
 metrics_error = None
 metrics = None
 try:
@@ -80,12 +79,28 @@ def load_prediction_csv():
     return pd.read_csv("data/prediction_results.csv")
 
 
+def _subprocess_env():
+    """
+    Build an environment for child processes that includes the project
+    root on PYTHONPATH. Without this, `python analytics/reports.py`
+    (or runner.py) only sees its own folder on sys.path, so top-level
+    packages like database/ can't be imported and you get
+    ModuleNotFoundError.
+    """
+    env = os.environ.copy()
+    project_root = os.getcwd()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = project_root + (os.pathsep + existing if existing else "")
+    return env
+
+
 def run_predictor():
     """
-    predictor.py is currently a top-level script (runs on import,
-    reads data/test_cases.csv, writes data/prediction_results.csv).
-    We run it as a subprocess instead of importing it, so it doesn't
-    re-execute on every Streamlit rerun, and we read back its output CSV.
+    predictor.py is currently a top-level script (runs on import, reads
+    data/test_cases.csv, writes data/prediction_results.csv). We run it
+    as a subprocess instead of importing it, so it doesn't re-execute on
+    every Streamlit rerun, and we read back its output CSV.
+
     NOTE: this predicts on data/test_cases.csv, which is a separate file
     from your SQLite test_cases table — the two may not match yet.
     """
@@ -104,32 +119,24 @@ def run_predictor():
         return None, str(e)
 
 
-def _subprocess_env():
-    """
-    Build an environment for child processes that includes the project root
-    on PYTHONPATH. Without this, `python analytics/reports.py` (or runner.py)
-    only sees its own folder on sys.path, so top-level packages like
-    `database/` can't be imported and you get ModuleNotFoundError.
-    """
-    env = os.environ.copy()
-    project_root = os.getcwd()
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = project_root + (os.pathsep + existing if existing else "")
-    return env
-
-
 def run_live_tests(website=None, browser=None, environment=None, modules=None):
     """
-    runner.py is a top-level script that drives Selenium. We run it as a
-    subprocess (never import it directly into a Streamlit page — that would
-    trigger real browser automation on every page load). Manual trigger only.
+    Executes runner.py and returns (success: bool, output: str).
 
-    If website/browser/environment/modules are provided, they're passed as
-    command-line args. NOTE: runner.py needs to actually parse sys.argv for
-    these to take effect — right now it likely still uses hardcoded values
-    unless you've updated it to read these flags.
+    This is the ONE signature both pages now use:
+      - Dashboard page calls run_live_tests() with no arguments, so
+        runner.py falls back to its own defaults (Chrome, Development,
+        Login+Search+Checkout).
+      - Website Testing page calls run_live_tests(website=..., browser=...,
+        environment=..., modules=[...]); those values are forwarded to
+        runner.py as CLI flags (--url/--browser/--env/--modules), which
+        runner.py now actually reads and acts on.
+
+    Previously the two pages expected different return shapes
+    (success/output vs out/err) and different argument counts — that
+    mismatch is what's fixed here.
     """
-    cmd = ["python", "runner.py"]
+    cmd = [sys.executable, "runner.py"]
     if website:
         cmd += ["--url", website]
     if browser:
@@ -143,14 +150,22 @@ def run_live_tests(website=None, browser=None, environment=None, modules=None):
         result = subprocess.run(
             cmd,
             capture_output=True,
-            timeout=180,
             text=True,
+            timeout=300,
             cwd=os.getcwd(),
             env=_subprocess_env(),
         )
-        return result.stdout, result.stderr
+        output = ""
+        if result.stdout:
+            output += result.stdout
+        if result.stderr:
+            output += "\n\nERROR:\n"
+            output += result.stderr
+        return result.returncode == 0, output
+    except subprocess.TimeoutExpired:
+        return False, "Execution timed out after 5 minutes."
     except Exception as e:
-        return None, str(e)
+        return False, str(e)
 
 
 def run_reports_script():
@@ -172,7 +187,6 @@ def run_reports_script():
 # -------------------------------------------------
 # Sidebar
 # -------------------------------------------------
-
 st.sidebar.title("🧪 IQATA")
 page = st.sidebar.radio(
     "Navigation",
@@ -186,8 +200,8 @@ page = st.sidebar.radio(
         "⚙ Settings",
     ],
 )
-st.sidebar.markdown("---")
 
+st.sidebar.markdown("---")
 if st.sidebar.button("🔄 Refresh Dashboard"):
     st.cache_data.clear()
     st.cache_resource.clear()
@@ -202,7 +216,6 @@ else:
 # -------------------------------------------------
 # Header
 # -------------------------------------------------
-
 st.title("🧪 Intelligent QA & Test Automation Platform")
 st.caption(f"Live data · last loaded {datetime.now().strftime('%H:%M:%S')}")
 st.markdown("---")
@@ -210,13 +223,11 @@ st.markdown("---")
 # =================================================
 # DASHBOARD
 # =================================================
-
 if page == "🏠 Dashboard":
-
     if metrics_error:
         st.error(
             "Couldn't load analytics.metrics.Metrics(). Showing this instead of fake numbers:\n\n"
-            f"`{metrics_error}`\n\nCheck that qa_platform.db exists and database/base_db.py "
+            f"{metrics_error}\n\nCheck that qa_platform.db exists and database/base_db.py "
             "is importable from this working directory."
         )
     else:
@@ -234,7 +245,6 @@ if page == "🏠 Dashboard":
         col4.metric("Avg Exec Time", f"{avg_time}s")
 
         st.markdown("---")
-
         left, right = st.columns(2)
 
         status_df = pd.DataFrame({"Status": ["Passed", "Failed"], "Count": [passed, failed]})
@@ -242,7 +252,7 @@ if page == "🏠 Dashboard":
             fig = px.pie(status_df, values="Count", names="Status", hole=.55,
                          color="Status", color_discrete_map={"Passed": GOOD, "Failed": BAD},
                          title="Pass / Fail (from test_runs table)")
-            left.plotly_chart(fig, use_container_width=True)
+            left.plotly_chart(fig, width="stretch")
         else:
             left.info("No rows in test_runs yet — run tests via runner.py to populate this.")
 
@@ -251,30 +261,38 @@ if page == "🏠 Dashboard":
             mod_df = pd.DataFrame(mod_stats, columns=["Module", "Count"])
             fig2 = px.bar(mod_df, x="Module", y="Count", title="Test Cases by Module",
                           color_discrete_sequence=[ACCENT])
-            right.plotly_chart(fig2, use_container_width=True)
+            right.plotly_chart(fig2, width="stretch")
         else:
             right.info("No module_statistics data returned (check 'module' column in test_cases).")
 
-    st.markdown("---")
-    st.markdown("### ▶ Live Test Execution")
-    st.caption("Runs runner.py as a subprocess. This drives real Selenium — only trigger when you're ready to demo it.")
-    if st.button("Run Live Tests Now"):
-        with st.spinner("Running runner.py..."):
-            out, err = run_live_tests()
-        if err:
-            st.error(f"runner.py failed or errored:\n```\n{err}\n```")
-        if out:
-            st.code(out)
-        st.cache_data.clear()
-        st.rerun()
+        st.markdown("### 🚀 Live Test Execution")
+        if st.button("▶ Run Live Tests", width="stretch"):
+            with st.spinner("Running Selenium Tests..."):
+                success, output = run_live_tests()
+            st.session_state["test_success"] = success
+            st.session_state["test_output"] = output
+            st.cache_data.clear()
+            st.cache_resource.clear()
+            st.rerun()
+
+        if "test_success" in st.session_state:
+            if st.session_state["test_success"]:
+                st.success(" Selenium tests completed successfully.")
+            else:
+                st.error(" Selenium execution failed.")
+            st.code(st.session_state["test_output"], language="text")
+
+        if "test_output" in st.session_state:
+            if st.button("🗑 Clear Console"):
+                del st.session_state["test_output"]
+                del st.session_state["test_success"]
+                st.rerun()
 
 # =================================================
 # ANALYTICS
 # =================================================
-
 elif page == "📊 Analytics":
     st.markdown("## 📊 Analytics")
-
     if metrics_error:
         st.error(f"metrics.py unavailable: {metrics_error}")
     else:
@@ -284,15 +302,15 @@ elif page == "📊 Analytics":
         if browser_stats:
             bdf = pd.DataFrame(browser_stats, columns=["Browser", "Count"])
             c1.plotly_chart(px.bar(bdf, x="Browser", y="Count", title="Browser Distribution",
-                                    color_discrete_sequence=[ACCENT]), use_container_width=True)
+                                    color_discrete_sequence=[ACCENT]), width="stretch")
         else:
             c1.info("No browser_statistics data.")
 
         env_stats = safe_call(metrics.environment_statistics, [])
         if env_stats:
             edf = pd.DataFrame(env_stats, columns=["Environment", "Count"])
-            c2.plotly_chart(px.pie(edf, values="Count", names="Environment", title="Environment Distribution"),
-                             use_container_width=True)
+            c2.plotly_chart(px.pie(edf, values="Count", names="Environment",
+                                    title="Environment Distribution"), width="stretch")
         else:
             c2.info("No environment_statistics data.")
 
@@ -301,11 +319,10 @@ elif page == "📊 Analytics":
 # =================================================
 # AI PREDICTION
 # =================================================
-
 elif page == "🤖 AI Prediction":
     st.markdown("## 🤖 AI Defect Prediction")
     st.caption(
-        "⚠ predictor.py currently predicts on data/test_cases.csv, which is separate from your "
+        " predictor.py currently predicts on data/test_cases.csv, which is separate from your "
         "SQLite test_cases table. Until that CSV is generated from the live DB, treat this panel "
         "as a demo of the model pipeline, not a live reflection of test_runs above."
     )
@@ -314,56 +331,55 @@ elif page == "🤖 AI Prediction":
         with st.spinner("Running ml/predictor.py..."):
             pred_df, err = run_predictor()
         if err:
-            st.error(f"predictor.py failed:\n```\n{err}\n```\n\nCheck ml/model.pkl and data/test_cases.csv exist and are readable from this working directory.")
+            st.error(f"predictor.py failed:\n\n{err}\n\nCheck ml/model.pkl and data/test_cases.csv "
+                     "exist and are readable from this working directory.")
         elif pred_df is not None:
             st.session_state["pred_df"] = pred_df
 
     if "pred_df" in st.session_state:
         pred_df = st.session_state["pred_df"]
         st.dataframe(pred_df, use_container_width=True, hide_index=True)
-
         if "failure_probability" in pred_df.columns:
             fig = px.bar(pred_df.sort_values("failure_probability", ascending=False),
                          x=pred_df.columns[0], y="failure_probability",
-                         title="Failure Probability by Test Case", color_discrete_sequence=[BAD])
-            st.plotly_chart(fig, use_container_width=True)
+                         title="Failure Probability by Test Case",
+                         color_discrete_sequence=[BAD])
+            st.plotly_chart(fig, width="stretch")
     else:
         st.info("Click 'Run Prediction Model' to generate live predictions from your trained model.")
 
 # =================================================
 # RCA
 # =================================================
-
-elif page == "🧩 Root Cause Analysis":
-    st.markdown("## 🧩 Root Cause Analysis")
-
+elif page == " Root Cause Analysis":
+    st.markdown("## Root Cause Analysis")
     if rca_error:
         st.error(f"rca_engine.py unavailable: {rca_error}")
     else:
         st.caption(
-            "⚠ runner.py currently inserts failure_reason=None for every run, so there's no real "
-            "failure text in the DB yet for this engine to analyze automatically. Enter one manually "
-            "below, or fix runner.py to capture the actual exception message on failure."
+            "Failure reasons are now captured automatically by runner.py whenever a live test "
+            "fails (TimeoutException, NoSuchElementException, AssertionError, etc.), so this "
+            "engine has real data to work with. You can also paste any reason manually below."
         )
         reason = st.text_input("Failure reason (from a failed test)", placeholder="e.g. Timeout waiting for element")
         if reason:
             st.success(analyze_failure(reason))
 
         st.markdown("#### Reference examples")
-        for r in ["Timeout", "Element Not Found", "Assertion Error", "Database Connection Lost", "API Failure", "Invalid Credentials"]:
+        for r in ["Timeout", "Element Not Found", "Assertion Error",
+                  "Database Connection Lost", "API Failure", "Invalid Credentials"]:
             st.write(f"**{r}** → {analyze_failure(r)}")
 
 # =================================================
 # WEBSITE TESTING
 # =================================================
-
 elif page == "🌐 Website Testing":
     st.markdown("## 🌐 Website Test Automation")
     st.caption(
-        "⚠ This page passes the fields below to runner.py as command-line args "
-        "(--url, --browser, --env, --modules). runner.py must be updated to read "
-        "sys.argv for these to actually control the Selenium run — otherwise it "
-        "will still use whatever is hardcoded inside it."
+        "This page passes the fields below to runner.py as command-line args "
+        "(--url, --browser, --env, --modules), and runner.py now reads sys.argv "
+        "(via argparse) so these actually control the Selenium run instead of "
+        "being ignored."
     )
 
     website = st.text_input("Website URL", placeholder="https://example.com")
@@ -373,18 +389,17 @@ elif page == "🌐 Website Testing":
     environment = col_b.selectbox("Environment", ["Development", "Staging", "Production"])
 
     st.markdown("#### Modules to test")
-    m1, m2, m3, m4, m5 = st.columns(5)
+    m1, m2, m3 = st.columns(3)
     selected_modules = []
+
     if m1.checkbox("Login", value=True):
         selected_modules.append("Login")
+
     if m2.checkbox("Search", value=True):
         selected_modules.append("Search")
+
     if m3.checkbox("Checkout", value=True):
         selected_modules.append("Checkout")
-    if m4.checkbox("Registration", value=True):
-        selected_modules.append("Registration")
-    if m5.checkbox("Profile", value=True):
-        selected_modules.append("Profile")
 
     run_clicked = st.button("▶ Run Tests")
 
@@ -398,7 +413,7 @@ elif page == "🌐 Website Testing":
             progress.progress(45, text="Running selected modules...")
 
             with st.spinner(f"Running runner.py against {website}..."):
-                out, err = run_live_tests(
+                success, output = run_live_tests(
                     website=website,
                     browser=browser,
                     environment=environment,
@@ -412,28 +427,30 @@ elif page == "🌐 Website Testing":
                 "browser": browser,
                 "environment": environment,
                 "modules": selected_modules,
-                "stdout": out,
-                "stderr": err,
+                "success": success,
+                "output": output,
                 "timestamp": datetime.now().strftime("%H:%M:%S"),
             }
-
             progress.progress(100, text="Done")
             st.cache_data.clear()
 
     result = st.session_state.get("website_test_result")
     if result:
         st.markdown("---")
-        st.markdown(f"### Results for `{result['website']}`")
-        st.caption(f"Browser: {result['browser']} · Environment: {result['environment']} · Finished {result['timestamp']}")
+        st.markdown(f"### Results for {result['website']}")
+        st.caption(
+            f"Browser: {result['browser']} · Environment: {result['environment']} · "
+            f"Finished {result['timestamp']}"
+        )
 
-        if result["stderr"]:
-            st.error(f"runner.py reported errors:\n```\n{result['stderr']}\n```")
+        if result["success"]:
+            st.success(" All selected modules passed.")
         else:
-            st.success("Run completed without a subprocess error. Check output below for pass/fail detail.")
+            st.error(" One or more modules failed (or runner.py hit an error). See output below.")
 
-        if result["stdout"]:
+        if result["output"]:
             st.markdown("#### Console Output")
-            st.code(result["stdout"])
+            st.code(result["output"])
 
         st.markdown("#### Execution Timeline")
         for mod in result["modules"]:
@@ -441,9 +458,11 @@ elif page == "🌐 Website Testing":
 
         st.markdown("#### Artifacts")
         art1, art2, art3 = st.columns(3)
-        art1.write("📸 Screenshot — hook up runner.py to save one and display it with `st.image(path)`")
+        art1.write("📸 Screenshot — runner.py now saves one to screenshots/ on failure; "
+                    "wire up st.image(path) here once you're reading paths back from the DB.")
         art2.write("📄 HTML Report — link it here once runner.py writes one")
-        art3.write("🧾 Logs — shown in Console Output above")
+        art3.write("🧾 Logs — runner.py now writes a per-test log file to logs/; "
+                    "shown inline in Console Output above")
 
         st.markdown("---")
         st.markdown("#### AI Prediction on this run")
@@ -451,17 +470,16 @@ elif page == "🌐 Website Testing":
             with st.spinner("Running ml/predictor.py..."):
                 pred_df, perr = run_predictor()
             if perr:
-                st.error(f"predictor.py failed:\n```\n{perr}\n```")
+                st.error(f"predictor.py failed:\n\n{perr}")
             elif pred_df is not None:
                 st.dataframe(pred_df, use_container_width=True, hide_index=True)
 
         st.markdown("#### Root Cause (if failed)")
         if not rca_error:
-            last_error_text = result["stderr"] or ""
-            if last_error_text:
-                st.info(analyze_failure(last_error_text))
+            if not result["success"] and result["output"]:
+                st.info(analyze_failure(result["output"]))
             else:
-                st.caption("No failure text captured yet — runner.py needs to surface the real exception message for this to run automatically.")
+                st.caption("No failure text captured for this run.")
         else:
             st.error(f"rca_engine.py unavailable: {rca_error}")
 
@@ -471,47 +489,38 @@ elif page == "🌐 Website Testing":
 # =================================================
 # REPORTS
 # =================================================
-
 elif page == "📄 Reports":
     st.markdown("## 📄 QA Reports")
-
     report_path = "reports/qa_report.txt"
     if os.path.exists(report_path):
         with open(report_path, "r") as f:
             report = f.read()
-
         st.markdown("#### Report Preview")
         st.text(report)
-
-        st.download_button(
-            "Download Report",
-            report,
-            file_name="QA_Report.txt",
-        )
+        st.download_button("Download Report", report, file_name="QA_Report.txt")
     else:
         st.info("No report found yet at reports/qa_report.txt.")
+
 # =================================================
 # SETTINGS
 # =================================================
-
 elif page == "⚙ Settings":
     st.markdown("## ⚙ Settings")
     st.write("**Working directory:**", os.getcwd())
-    st.write("**metrics.py status:**", "✅ OK" if not metrics_error else f"❌ {metrics_error}")
-    st.write("**rca_engine.py status:**", "✅ OK" if not rca_error else f"❌ {rca_error}")
-    st.write("**streamlit-autorefresh installed:**", "✅ Yes" if AUTOREFRESH_AVAILABLE else "❌ No (pip install streamlit-autorefresh)")
+    st.write("**metrics.py status:**", " OK" if not metrics_error else f" {metrics_error}")
+    st.write("**rca_engine.py status:**", " OK" if not rca_error else f" {rca_error}")
+    st.write("**streamlit-autorefresh installed:**", " Yes" if AUTOREFRESH_AVAILABLE else " No (pip install streamlit-autorefresh)")
+
     st.markdown("---")
     st.markdown(
         "#### Known gaps (fix if time allows before demo)\n"
-        "1. `predictor.py` reads `data/test_cases.csv`, not the SQLite DB — the two can drift apart.\n"
-        "2. `runner.py` always inserts `failure_reason=None` — RCA panel has nothing real to analyze from live runs.\n"
-        "3. Both `predictor.py` and `runner.py` are scripts, not functions — this app runs them as subprocesses to stay safe, which is slower than a direct function call would be.\n"
-        "4. `runner.py` needs to actually parse `--url`, `--browser`, `--env`, `--modules` for the "
-        "Website Testing page to control real test parameters — right now those args are sent but "
-        "may be ignored depending on your current runner.py.\n"
-        "5. Screenshot/HTML report viewing on the Website Testing page needs runner.py to actually "
-        "save those artifacts and return their paths."
+        "1. predictor.py reads data/test_cases.csv, not the SQLite DB — the two can drift apart.\n"
+        "2. Both predictor.py and runner.py are scripts, not functions — this app runs them as "
+        "subprocesses to stay safe, which is slower than a direct function call would be.\n"
+        "3. Screenshot/log paths are now stored in the DB by runner.py, but this page doesn't "
+        "read them back yet with st.image()/a download link — that's a nice follow-up.\n"
+        "4. Registration/Profile modules only run if tests/registration_test.py and "
+        "tests/profile_test.py exist — otherwise runner.py prints a warning and skips them."
     )
-
-st.markdown("---")
-st.caption("IQATA Dashboard © 2026")
+    st.markdown("---")
+    st.caption("IQATA Dashboard © 2026")
