@@ -1,0 +1,5 @@
+module,browser,environment,priority,execution_time
+Login,Chrome,Production,0.8,2.5
+Checkout,Chrome,Production,0.95,5.2
+Payment,Firefox,Staging,0.9,8.1
+Search,Edge,Development,0.4,1.8

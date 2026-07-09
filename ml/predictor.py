@@ -6,63 +6,45 @@ import pandas as pd
 model = joblib.load("ml/model.pkl")
 
 
-def predict_test_case(
-    module,
-    browser,
-    environment,
-    priority,
-    execution_time
-):
-
-    test_data = pd.DataFrame(
-        [
-            {
-                "module": module,
-                "browser": browser,
-                "environment": environment,
-                "priority": priority,
-                "execution_time": execution_time
-            }
-        ]
-    )
+# Read test cases
+test_cases = pd.read_csv(
+    "data/test_cases.csv"
+)
 
 
-    prediction = model.predict(test_data)
+# Predict
+predictions = model.predict(test_cases)
 
-    probability = model.predict_proba(test_data)
-
-
-    risk = probability[0][1] * 100
+probabilities = model.predict_proba(test_cases)
 
 
-    if prediction[0] == 1:
-        result = "HIGH RISK - Likely Failure"
-    else:
-        result = "LOW RISK - Likely Pass"
+# Add results
+test_cases["prediction"] = predictions
 
 
-    print("\n==============================")
-    print(" AI DEFECT PREDICTION")
-    print("==============================")
-
-    print("Module :", module)
-    print("Browser :", browser)
-    print("Environment :", environment)
-
-    print("------------------------------")
-
-    print("Prediction :", result)
-    print("Failure Probability :", round(risk,2), "%")
-
-    print("==============================")
+test_cases["failure_probability"] = (
+    probabilities[:,1] * 100
+)
 
 
-if __name__ == "__main__":
+# Convert prediction
+test_cases["prediction"] = test_cases["prediction"].map(
+    {
+        0:"LOW RISK - Likely Pass",
+        1:"HIGH RISK - Likely Failure"
+    }
+)
 
-    predict_test_case(
-        module="Checkout",
-        browser="Chrome",
-        environment="Production",
-        priority=0.95,
-        execution_time=5.2
-    )
+
+print("\n==============================")
+print("AI DEFECT PREDICTION")
+print("==============================")
+
+print(test_cases)
+
+
+# Save results
+test_cases.to_csv(
+    "data/prediction_results.csv",
+    index=False
+)

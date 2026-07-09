@@ -1,0 +1,5 @@
+module,browser,environment,priority,execution_time,prediction,failure_probability
+Login,Chrome,Production,0.8,2.5,LOW RISK - Likely Pass,19.0
+Checkout,Chrome,Production,0.95,5.2,LOW RISK - Likely Pass,21.0
+Payment,Firefox,Staging,0.9,8.1,LOW RISK - Likely Pass,35.0
+Search,Edge,Development,0.4,1.8,LOW RISK - Likely Pass,15.0
