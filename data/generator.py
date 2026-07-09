@@ -41,9 +41,31 @@ FAILURE_REASONS = [
 
 
 def generate_test_cases(count=50):
+
     test_cases = []
 
-    for i in range(1, count + 1):
+    # Real Selenium Tests
+    selenium_tests = [
+        ("Login Test", "Authentication"),
+        ("Search Test", "Search"),
+        ("Checkout Test", "Checkout")
+    ]
+
+    # First 3 test cases
+    for name, module in selenium_tests:
+
+        test_cases.append({
+            "name": name,
+            "module": module,
+            "browser": random.choice(BROWSERS),
+            "environment": random.choice(ENVIRONMENTS),
+            "priority": round(random.uniform(0.8, 1.0), 2),
+            "active": 1
+        })
+
+    # Remaining generated test cases
+    for i in range(4, count + 1):
+
         test_cases.append({
             "name": f"TC_{i:03}",
             "module": random.choice(MODULES),

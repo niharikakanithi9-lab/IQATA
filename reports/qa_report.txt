@@ -1,0 +1,54 @@
+==================================================
+INTELLIGENT QA AUTOMATION REPORT
+==================================================
+Generated On : 2026-07-09 19:40:00.025644
+
+TEST SUMMARY
+--------------------------------------------------
+Total Test Cases       : 50
+Total Test Runs        : 2018
+
+Execution Source
+--------------------------------------------------
+Historical Test Runs : Generated Dataset
+Latest Test Runs     : Live Selenium Automation
+
+LATEST AUTOMATION TESTS
+
+AI DEFECT PREDICTION
+--------------------------------------------------
+Checkout Test : LOW RISK (21.0% failure probability)
+--------------------------------------------------
+Login Test         PASS   12.04 sec
+Search Test        PASS   9.19 sec
+Checkout Test      FAIL   23.04 sec
+Passed Tests           : 1625
+Failed Tests           : 393
+Pass Rate              : 80.53 %
+Failure Rate           : 19.47 %
+Average Execution Time : 4.38 sec
+
+BROWSER DISTRIBUTION
+--------------------------------------------------
+Chrome          : 17
+Edge            : 13
+Firefox         : 20
+
+ENVIRONMENT DISTRIBUTION
+--------------------------------------------------
+Development     : 16
+Production      : 19
+Staging         : 15
+
+MODULE DISTRIBUTION
+--------------------------------------------------
+Authentication       : 5
+Cart                 : 3
+Checkout             : 10
+Notifications        : 6
+Orders               : 6
+Payment              : 2
+Profile              : 4
+Reports              : 7
+Search               : 2
+Settings             : 5

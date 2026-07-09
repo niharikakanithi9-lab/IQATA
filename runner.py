@@ -1,3 +1,7 @@
+passed = 0
+failed = 0
+
+latest_results = []
 import time
 from datetime import datetime
 
@@ -39,6 +43,13 @@ for index, (name, test) in enumerate(tests, start=1):
     execution_time = round(end - start, 2)
 
     result = "PASS" if status else "FAIL"
+    latest_results.append(
+    (
+        name,
+        result,
+        execution_time
+    )
+    )
 
     if status:
         passed += 1
@@ -83,6 +94,11 @@ print("\n==============================")
 print("TOTAL TESTS :", len(tests))
 print("PASSED      :", passed)
 print("FAILED      :", failed)
+print("\nLATEST LIVE EXECUTIONS")
+print("-" * 40)
+
+for name, result, exec_time in latest_results:
+    print(f"{name:<20} {result:<6} {exec_time} sec")
 print("==============================")
 
 db.close()
