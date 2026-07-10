@@ -3,18 +3,18 @@ runner.py
 
 Executes the Selenium test suite.
 
-Fixes applied (see review notes):
-  - Problem 2: reads website/browser/environment/modules from the
-    command line instead of ignoring them.
-  - Problem 3 & 4: passes the URL and browser choice into each test
-    class instead of letting the test decide on its own.
-  - Problem 5: only runs the modules that were actually selected.
-  - Problem 6: stores the real exception (TimeoutException,
-    NoSuchElementException, AssertionError, etc.) as failure_reason
-    instead of always inserting None.
-  - Problem 7: saves a screenshot on failure (if the test exposes a
-    Selenium `driver`) and stores its path.
-  - Problem 8: writes a per-test log file and stores its path.
+Fixes applied:
+  - url/browser/environment from the dashboard are read via argparse
+    and now genuinely reach each test class, because the test classes'
+    __init__ accepts them (see tests/base_test.py). Previously
+    build_test_instance's first attempt raised TypeError (the test
+    classes didn't accept those kwargs) and silently fell back to a
+    no-arg constructor, so the URL field on the dashboard did nothing.
+  - failure_reason is the real exception message, not always None.
+  - screenshots are captured by the test itself, before its own
+    teardown() quits the driver, and the path is read back here
+    instead of being re-attempted on an already-closed session.
+  - writes a per-test log file and stores its path.
 
 Usage:
     python runner.py --url https://example.com --browser Chrome \
@@ -29,13 +29,6 @@ from datetime import datetime
 
 from database.sqlite_db import SQLiteDB
 
-# ------------------------------------------------------------------
-# Registry of available test modules. Each entry maps the "module
-# name" used by the dashboard's checkboxes to the class that
-# implements it. Registration/Profile are optional: if those test
-# files don't exist yet, runner.py still runs fine and just reports
-# that the module isn't available instead of crashing.
-# ------------------------------------------------------------------
 AVAILABLE_TESTS = {}
 
 from tests.login_test import LoginTest
@@ -46,8 +39,6 @@ AVAILABLE_TESTS["Search"] = SearchTest
 
 from tests.checkout_test import CheckoutTest
 AVAILABLE_TESTS["Checkout"] = CheckoutTest
-
-
 
 
 def parse_args():
@@ -65,14 +56,11 @@ def parse_args():
 
 def build_test_instance(test_cls, url, browser, environment):
     """
-    Instantiate a test class, passing url/browser/environment through
-    so the dropdown/URL box on the dashboard actually changes what
-    Selenium does (Problems 3 & 4).
-
-    Falls back to a plain no-arg constructor if the test class hasn't
-    been updated yet to accept these kwargs or positional args, so
-    this keeps working incrementally rather than requiring every test
-    file to change at once.
+    Now that tests/base_test.py's __init__ actually accepts
+    url/browser/environment, this succeeds on the first try. The
+    fallbacks are kept only as defensive guards in case a test class
+    is ever added that hasn't been updated to accept these kwargs —
+    they should no longer be the common path.
     """
     try:
         return test_cls(url=url, browser=browser, environment=environment)
@@ -87,28 +75,22 @@ def build_test_instance(test_cls, url, browser, environment):
 
 def capture_screenshot(test_instance, test_name):
     """
-    Save a screenshot if the test instance exposes a Selenium
-    `driver` attribute. Returns None (not a fake path) if no driver
-    is available, so the DB only ever holds real paths (Problem 7).
-    """
-    driver = getattr(test_instance, "driver", None)
-    if driver is None:
-        return None
+    Each test now takes its own screenshot (via self.capture_screenshot())
+    BEFORE its own `finally: self.teardown()` quits the driver, and stores
+    the path on self.screenshot_path.
 
-    os.makedirs("screenshots", exist_ok=True)
-    safe_name = test_name.lower().replace(" ", "_")
-    path = f"screenshots/{safe_name}_{int(time.time())}.png"
-    try:
-        driver.save_screenshot(path)
-        return path
-    except Exception:
-        return None
+    The old version tried to call driver.save_screenshot() from here in
+    runner.py — but by the time run_test() returns, the test's own
+    teardown() has already called driver.quit(), so the session is dead
+    and save_screenshot() always raised (silently, caught by a bare
+    except). Screenshots never actually saved. This just reads back the
+    path the test already captured instead of re-attempting it on a
+    closed session.
+    """
+    return getattr(test_instance, "screenshot_path", None)
 
 
 def write_log(test_name, status, execution_time, failure_reason=None):
-    """
-    Write a per-test log file and return its path (Problem 8).
-    """
     os.makedirs("logs", exist_ok=True)
     safe_name = test_name.lower().replace(" ", "_")
     path = f"logs/{safe_name}_{int(time.time())}.log"
@@ -133,7 +115,6 @@ def main():
     environment = args.env
     requested_modules = [m.strip() for m in args.modules.split(",") if m.strip()]
 
-    # Problem 5: only run what was actually selected.
     modules_to_run = [m for m in requested_modules if m in AVAILABLE_TESTS]
     unknown_modules = [m for m in requested_modules if m not in AVAILABLE_TESTS]
     for m in unknown_modules:
@@ -143,10 +124,17 @@ def main():
         print("No valid modules selected. Nothing to run.")
         sys.exit(1)
 
-    print(f"Target URL     : {website or '(none provided)'}")
+    print(f"Target URL     : {website or '(none provided — tests use their own default URL)'}")
     print(f"Browser        : {browser}")
     print(f"Environment    : {environment}")
     print(f"Modules to run : {', '.join(modules_to_run)}")
+    if website:
+        print(
+            "NOTE: Search and Checkout tests use hardcoded element IDs from "
+            "saucedemo.com (e.g. #user-name, .inventory_item). Pointing them "
+            "at an arbitrary custom URL will likely fail unless that site "
+            "happens to use the same element structure."
+        )
 
     db = SQLiteDB()
     db.connect()
@@ -169,7 +157,6 @@ def main():
         try:
             status = test_instance.run_test()
         except Exception as e:
-            # Problem 6: store the real exception instead of None.
             status = False
             failure_reason = f"{type(e).__name__}: {e}"
 
@@ -210,7 +197,7 @@ def main():
                 datetime.now(),
                 datetime.now(),
                 failure_reason,
-                None,  # RCA suggestion is computed on-demand by rca_engine.py
+                None,
                 screenshot_url,
                 log_url,
             ),
@@ -227,9 +214,6 @@ def main():
     print("==============================")
 
     db.close()
-
-    # Non-zero exit code on any failure so app.py's
-    # `result.returncode == 0` success check is meaningful.
     sys.exit(0 if failed == 0 else 1)
 
 

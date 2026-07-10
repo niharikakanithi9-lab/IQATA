@@ -1,12 +1,12 @@
 ==================================================
 INTELLIGENT QA AUTOMATION REPORT
 ==================================================
-Generated On : 2026-07-09 21:35:32.249809
+Generated On : 2026-07-10 13:09:54.770490
 
 TEST SUMMARY
 --------------------------------------------------
 Total Test Cases       : 50
-Total Test Runs        : 2018
+Total Test Runs        : 2060
 
 Execution Source
 --------------------------------------------------
@@ -17,16 +17,16 @@ LATEST AUTOMATION TESTS
 
 AI DEFECT PREDICTION
 --------------------------------------------------
-Checkout Test : AI prediction unavailable (model.pkl failed to load — check numpy/scikit-learn versions)
+Checkout Test : LOW RISK (21.0% failure probability)
 --------------------------------------------------
-Login Test         PASS   12.04 sec
-Search Test        PASS   9.19 sec
-Checkout Test      FAIL   23.04 sec
-Passed Tests           : 1625
-Failed Tests           : 393
-Pass Rate              : 80.53 %
-Failure Rate           : 19.47 %
-Average Execution Time : 4.38 sec
+Login Test         FAIL   18.23 sec
+Search Test        FAIL   10.31 sec
+Checkout Test      FAIL   17.34 sec
+Passed Tests           : 1630
+Failed Tests           : 430
+Pass Rate              : 79.13 %
+Failure Rate           : 20.87 %
+Average Execution Time : 4.58 sec
 
 BROWSER DISTRIBUTION
 --------------------------------------------------

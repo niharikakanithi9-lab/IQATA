@@ -1,0 +1,6 @@
+Test          : Search Test
+Status        : FAIL
+Execution time: 7.71 sec
+Timestamp     : 2026-07-10 13:05:24.728822
+----------------------------------------
+Failure reason: UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>

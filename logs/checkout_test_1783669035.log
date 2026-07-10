@@ -1,0 +1,6 @@
+Test          : Checkout Test
+Status        : FAIL
+Execution time: 6.84 sec
+Timestamp     : 2026-07-10 13:07:15.365429
+----------------------------------------
+Failure reason: UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>

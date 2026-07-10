@@ -1,0 +1,31 @@
+Test          : Search Test
+Status        : FAIL
+Execution time: 12.39 sec
+Timestamp     : 2026-07-10 13:38:25.442207
+----------------------------------------
+Failure reason: InvalidArgumentException: Message: invalid argument
+  (Session info: chrome=150.0.7871.115)
+Stacktrace:
+	chromedriver!GetHandleVerifier [0x7ff7061fa865+152a5]
+	chromedriver!GetHandleVerifier [0x7ff7061fa8c0+15300]
+	chromedriver!(No symbol) [0x7ff705d55756]
+	chromedriver!(No symbol) [0x7ff705d41f58]
+	chromedriver!(No symbol) [0x7ff705d4038b]
+	chromedriver!(No symbol) [0x7ff705d40912]
+	chromedriver!(No symbol) [0x7ff705d59c16]
+	chromedriver!(No symbol) [0x7ff705dfeaf4]
+	chromedriver!(No symbol) [0x7ff705dd8e6a]
+	chromedriver!(No symbol) [0x7ff705dfdcf4]
+	chromedriver!(No symbol) [0x7ff705da2b3c]
+	chromedriver!(No symbol) [0x7ff705da3a53]
+	chromedriver!GetHandleVerifier [0x7ff7067dd3a1+5f7de1]
+	chromedriver!GetHandleVerifier [0x7ff7067d7a3b+5f247b]
+	chromedriver!GetHandleVerifier [0x7ff7067fbca5+6166e5]
+	chromedriver!GetHandleVerifier [0x7ff7062172ae+31cee]
+	chromedriver!GetHandleVerifier [0x7ff70621fe3c+3a87c]
+	chromedriver!GetHandleVerifier [0x7ff706204404+1ee44]
+	chromedriver!GetHandleVerifier [0x7ff706204594+1efd4]
+	chromedriver!GetHandleVerifier [0x7ff7061e75c7+2007]
+	KERNEL32!BaseThreadInitThunk [0x7fff8ee9e957+17]
+	ntdll!RtlUserThreadStart [0x7fff91067c1c+2c]
+
