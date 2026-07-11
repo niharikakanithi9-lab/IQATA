@@ -1,3 +1,4 @@
+# base_test.py
 import os
 import time
 
@@ -18,14 +19,28 @@ class BaseTest:
 
     def setup(self):
         browser_name = (self.browser or "Chrome").lower()
-
         if browser_name == "firefox":
             self.driver = webdriver.Firefox()
         elif browser_name == "edge":
-            self.driver = webdriver.Edge()
+            from selenium.webdriver.edge.options import Options as EdgeOptions
+            options = EdgeOptions()
+            options.add_experimental_option("prefs", {
+                "credentials_enable_service": False,
+                "profile.password_manager_enabled": False,
+                "profile.password_manager_leak_detection": False,
+                })
+            options.add_argument("--disable-features=PasswordLeakDetection,PasswordChangeDetection")
+            self.driver = webdriver.Edge(options=options)
         else:
-            self.driver = webdriver.Chrome()
-
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
+            options = ChromeOptions()
+            options.add_experimental_option("prefs", {
+                "credentials_enable_service": False,
+                "profile.password_manager_enabled": False,
+                "profile.password_manager_leak_detection": False,
+            })
+            options.add_argument("--disable-features=PasswordLeakDetection,PasswordChangeDetection")
+            self.driver = webdriver.Chrome(options=options)
         self.driver.maximize_window()
 
     def capture_screenshot(self, name):
