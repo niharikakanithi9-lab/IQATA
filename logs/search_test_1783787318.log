@@ -1,0 +1,30 @@
+Test          : Search Test
+Status        : FAIL
+Execution time: 3.9 sec
+Timestamp     : 2026-07-11 21:58:38.718773
+----------------------------------------
+Failure reason: WebDriverException: Message: unknown error: failed to change window state to 'maximized', current state is 'minimized'
+  (Session info: chrome=150.0.7871.115)
+Stacktrace:
+	chromedriver!GetHandleVerifier [0x7ff61b53a865+152a5]
+	chromedriver!GetHandleVerifier [0x7ff61b53a8c0+15300]
+	chromedriver!(No symbol) [0x7ff61b09596d]
+	chromedriver!(No symbol) [0x7ff61b071be8]
+	chromedriver!(No symbol) [0x7ff61b0700a4]
+	chromedriver!(No symbol) [0x7ff61b06e521]
+	chromedriver!(No symbol) [0x7ff61b156b9f]
+	chromedriver!(No symbol) [0x7ff61b118e6a]
+	chromedriver!(No symbol) [0x7ff61b13dcf4]
+	chromedriver!(No symbol) [0x7ff61b0e2b3c]
+	chromedriver!(No symbol) [0x7ff61b0e3a53]
+	chromedriver!GetHandleVerifier [0x7ff61bb1d3a1+5f7de1]
+	chromedriver!GetHandleVerifier [0x7ff61bb17a3b+5f247b]
+	chromedriver!GetHandleVerifier [0x7ff61bb3bca5+6166e5]
+	chromedriver!GetHandleVerifier [0x7ff61b5572ae+31cee]
+	chromedriver!GetHandleVerifier [0x7ff61b55fe3c+3a87c]
+	chromedriver!GetHandleVerifier [0x7ff61b544404+1ee44]
+	chromedriver!GetHandleVerifier [0x7ff61b544594+1efd4]
+	chromedriver!GetHandleVerifier [0x7ff61b5275c7+2007]
+	KERNEL32!BaseThreadInitThunk [0x7ff84553e957+17]
+	ntdll!RtlUserThreadStart [0x7ff846067c1c+2c]
+
