@@ -1,0 +1,6 @@
+Test          : Search Test
+Status        : FAIL
+Execution time: 5.4 sec
+Timestamp     : 2026-07-11 18:28:37.384482
+----------------------------------------
+Failure reason: AttributeError: 'SearchTest' object has no attribute 'generic_login'

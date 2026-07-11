@@ -1,0 +1,6 @@
+Test          : Search Test
+Status        : FAIL
+Execution time: 15.88 sec
+Timestamp     : 2026-07-11 19:36:01.767323
+----------------------------------------
+Failure reason: Test reported FAIL without raising an exception.

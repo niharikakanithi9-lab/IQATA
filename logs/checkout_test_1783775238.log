@@ -1,0 +1,27 @@
+Test          : Checkout Test
+Status        : FAIL
+Execution time: 15.26 sec
+Timestamp     : 2026-07-11 18:37:18.575894
+----------------------------------------
+Failure reason: TimeoutException: Message: 
+Stacktrace:
+	chromedriver!GetHandleVerifier [0x7ff6c9fca865+152a5]
+	chromedriver!GetHandleVerifier [0x7ff6c9fca8c0+15300]
+	chromedriver!(No symbol) [0x7ff6c9b2596d]
+	chromedriver!(No symbol) [0x7ff6c9b805a9]
+	chromedriver!(No symbol) [0x7ff6c9b808ac]
+	chromedriver!(No symbol) [0x7ff6c9bd10f7]
+	chromedriver!(No symbol) [0x7ff6c9bcdcf4]
+	chromedriver!(No symbol) [0x7ff6c9b72b3c]
+	chromedriver!(No symbol) [0x7ff6c9b73a53]
+	chromedriver!GetHandleVerifier [0x7ff6ca5ad3a1+5f7de1]
+	chromedriver!GetHandleVerifier [0x7ff6ca5a7a3b+5f247b]
+	chromedriver!GetHandleVerifier [0x7ff6ca5cbca5+6166e5]
+	chromedriver!GetHandleVerifier [0x7ff6c9fe72ae+31cee]
+	chromedriver!GetHandleVerifier [0x7ff6c9fefe3c+3a87c]
+	chromedriver!GetHandleVerifier [0x7ff6c9fd4404+1ee44]
+	chromedriver!GetHandleVerifier [0x7ff6c9fd4594+1efd4]
+	chromedriver!GetHandleVerifier [0x7ff6c9fb75c7+2007]
+	KERNEL32!BaseThreadInitThunk [0x7ffed1b6e957+17]
+	ntdll!RtlUserThreadStart [0x7ffed3247c1c+2c]
+
