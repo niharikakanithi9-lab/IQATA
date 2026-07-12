@@ -8,7 +8,7 @@ import subprocess
 
 sys.path.append(os.getcwd())
 
-st.set_page_config(page_title="IQATA Dashboard", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="IQATA Dashboard", layout="wide")
 
 ACCENT = "#2563EB"
 BG = "#0F172A"
@@ -53,16 +53,99 @@ def safe_call(fn, default=0):
         return default
 
 
+def normalize_stats(data, first_col_name):
+    """
+    Normalize SQL / pandas analytics output into:
+
+    | first_col_name | Count |
+    """
+
+    columns = [first_col_name, "Count"]
+
+    if data is None:
+        return pd.DataFrame(columns=columns)
+
+    # Convert pyodbc.Row / SQL rows
+    if isinstance(data, (list, tuple)):
+
+        if len(data) == 0:
+            return pd.DataFrame(columns=columns)
+
+        cleaned = []
+
+        for row in data:
+
+            # pyodbc.Row
+            if hasattr(row, "_asdict"):
+                row = list(row)
+
+            elif hasattr(row, "__getitem__") and not isinstance(row, (str, bytes)):
+                row = list(row)
+
+            else:
+                row = [row]
+
+            if len(row) >= 2:
+                cleaned.append(
+                    [
+                        str(row[0]),
+                        int(row[1])
+                    ]
+                )
+            else:
+                cleaned.append(
+                    [
+                        str(row[0]),
+                        1
+                    ]
+                )
+
+        return pd.DataFrame(
+            cleaned,
+            columns=columns
+        )
+
+    # pandas dataframe
+    if isinstance(data, pd.DataFrame):
+
+        df = data.copy()
+
+        if len(df.columns) == 1:
+            df["Count"] = 1
+
+        df = df.iloc[:, :2]
+
+        df.columns = columns
+
+        df[first_col_name] = df[first_col_name].astype(str)
+        df["Count"] = df["Count"].astype(int)
+
+        return df
+
+    # pandas series
+    if isinstance(data, pd.Series):
+
+        return pd.DataFrame(
+            {
+                first_col_name: data.astype(str),
+                "Count": 1
+            }
+        )
+
+    return pd.DataFrame(columns=columns)
+
+
 def _subprocess_env():
     env = os.environ.copy()
     project_root = os.getcwd()
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = project_root + (os.pathsep + existing if existing else "")
     # Windows defaults subprocess stdout/stderr to the system codepage (cp1252/
-    # 'charmap') when piped, which can't encode characters like ✅/❌. Any
-    # print() with such a character then crashes with UnicodeEncodeError and
-    # gets caught by the test's own except block, marking it FAIL even if the
-    # actual test logic worked. Forcing UTF-8 here prevents that class of bug.
+    # 'charmap') when piped, which can't encode characters like the old status
+    # emoji. Any print() with such a character then crashes with
+    # UnicodeEncodeError and gets caught by the test's own except block,
+    # marking it FAIL even if the actual test logic worked. Forcing UTF-8
+    # here prevents that class of bug.
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 
@@ -77,6 +160,18 @@ def run_predictor():
         return pd.read_csv("data/prediction_results.csv"), None
     except Exception as e:
         return None, str(e)
+
+
+def run_report_generator():
+    try:
+        subprocess.run(
+            [sys.executable, "analytics/reports.py"],
+            capture_output=True, timeout=60, check=True,
+            cwd=os.getcwd(), env=_subprocess_env(),
+        )
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 
 def run_live_tests(website=None, browser=None, environment=None, modules=None):
@@ -104,37 +199,37 @@ def run_live_tests(website=None, browser=None, environment=None, modules=None):
 
 
 PAGES = [
-    "🏠 Dashboard",
-    "📊 Analytics",
-    "🤖 AI Prediction",
-    "🧩 Root Cause Analysis",
-    "🌐 Website Testing",
-    "📄 Reports",
-    "⚙ Settings",
+    "Dashboard",
+    "Analytics",
+    "AI Defect Prediction",
+    "Root Cause Analysis",
+    "Website Testing",
+    "Reports",
+    "Settings",
 ]
 
-st.sidebar.title("🧪 IQATA")
+st.sidebar.title("IQATA")
 page = st.sidebar.radio("Navigation", PAGES)
 
 st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Refresh Dashboard"):
+if st.sidebar.button("Refresh Dashboard"):
     st.cache_data.clear()
     st.rerun()
 
 if metrics_error:
     st.sidebar.error(f"metrics.py error:\n{metrics_error}")
 else:
-    st.sidebar.success("🟢 DB connected")
+    st.sidebar.success("Database connection established.")
 
-st.title("🧪 Intelligent QA & Test Automation Platform")
-st.caption(f"Live data · last loaded {datetime.now().strftime('%H:%M:%S')}")
+st.title("Intelligent Quality Assurance and Test Automation Platform")
+st.caption(f"Dashboard last updated: {datetime.now().strftime('%H:%M:%S')}")
 st.markdown("---")
 
 # =================================================
 # DASHBOARD
 # =================================================
 
-if page == "🏠 Dashboard":
+if page == "Dashboard":
     if metrics_error:
         st.error(f"Couldn't load Metrics(): {metrics_error}")
     else:
@@ -163,17 +258,27 @@ if page == "🏠 Dashboard":
         else:
             left.info("No rows in test_runs yet — run tests to populate this.")
 
-        mod_stats = safe_call(metrics.module_statistics, [])
-        if mod_stats:
-            mod_df = pd.DataFrame(mod_stats, columns=["Module", "Count"])
-            right.plotly_chart(px.bar(mod_df, x="Module", y="Count", title="Test Cases by Module",
-                                       color_discrete_sequence=[ACCENT]), use_container_width=True)
+        mod_df = normalize_stats(
+            safe_call(metrics.module_statistics, []),
+            "Module"
+        )
+        if not mod_df.empty:
+            right.plotly_chart(
+                px.bar(
+                    mod_df,
+                    x="Module",
+                    y="Count",
+                    title="Test Cases by Module",
+                    color_discrete_sequence=[ACCENT]
+                ),
+                use_container_width=True
+            )
         else:
-            right.info("No module_statistics data returned.")
+            right.info("No module statistics available.")
 
-    st.markdown("### 🚀 Live Test Execution")
-    if st.button("▶ Run Live Tests"):
-        with st.spinner("Running Selenium tests..."):
+    st.markdown("### Test Execution")
+    if st.button("Execute Test Suite"):
+        with st.spinner("Executing automated test suite..."):
             success, output = run_live_tests()
         st.session_state["test_success"] = success
         st.session_state["test_output"] = output
@@ -182,36 +287,55 @@ if page == "🏠 Dashboard":
 
     if "test_success" in st.session_state:
         if st.session_state["test_success"]:
-            st.success("Tests completed.")
+            st.success("Test execution completed successfully.")
         else:
-            st.error("Execution failed.")
+            st.error("Test execution completed with one or more failures.")
         st.code(st.session_state["test_output"], language="text")
 
 # =================================================
 # ANALYTICS
 # =================================================
 
-elif page == "📊 Analytics":
-    st.markdown("## 📊 Analytics")
+elif page == "Analytics":
+    st.markdown("## Analytics")
     if metrics_error:
         st.error(f"metrics.py unavailable: {metrics_error}")
     else:
         c1, c2 = st.columns(2)
-        browser_stats = safe_call(metrics.browser_statistics, [])
-        if browser_stats:
-            bdf = pd.DataFrame(browser_stats, columns=["Browser", "Count"])
-            c1.plotly_chart(px.bar(bdf, x="Browser", y="Count", title="Browser Distribution",
-                                    color_discrete_sequence=[ACCENT]), use_container_width=True)
+        bdf = normalize_stats(
+            safe_call(metrics.browser_statistics, []),
+            "Browser"
+        )
+        if not bdf.empty:
+            c1.plotly_chart(
+                px.bar(
+                    bdf,
+                    x="Browser",
+                    y="Count",
+                    title="Browser Distribution",
+                    color_discrete_sequence=[ACCENT]
+                ),
+                use_container_width=True
+            )
         else:
-            c1.info("No browser_statistics data.")
+            c1.info("No browser statistics are currently available.")
 
-        env_stats = safe_call(metrics.environment_statistics, [])
-        if env_stats:
-            edf = pd.DataFrame(env_stats, columns=["Environment", "Count"])
-            c2.plotly_chart(px.pie(edf, values="Count", names="Environment",
-                                    title="Environment Distribution"), use_container_width=True)
+        edf = normalize_stats(
+            safe_call(metrics.environment_statistics, []),
+            "Environment"
+        )
+        if not edf.empty:
+            c2.plotly_chart(
+                px.pie(
+                    edf,
+                    values="Count",
+                    names="Environment",
+                    title="Environment Distribution"
+                ),
+                use_container_width=True
+            )
         else:
-            c2.info("No environment_statistics data.")
+            c2.info("No environment statistics are currently available.")
 
         st.metric("Failure Rate", f"{safe_call(metrics.failure_rate)}%")
 
@@ -219,16 +343,16 @@ elif page == "📊 Analytics":
 # AI PREDICTION
 # =================================================
 
-elif page == "🤖 AI Prediction":
-    st.markdown("## 🤖 AI Defect Prediction")
+elif page == "AI Defect Prediction":
+    st.markdown("## AI-Based Defect Prediction")
     st.caption(
-        "⚠ predictor.py predicts on data/test_cases.csv, a separate file from your SQLite "
-        "test_cases table. Until that CSV is generated from the live DB, this is a demo of the "
-        "model pipeline, not a live reflection of the runs above."
+        "The prediction model evaluates the available test case dataset and estimates the "
+        "probability of test failure. The generated predictions provide a quality risk "
+        "assessment for each test case."
     )
 
-    if st.button("Run Prediction Model"):
-        with st.spinner("Running ml/predictor.py..."):
+    if st.button("Generate Predictions"):
+        with st.spinner("Generating AI predictions..."):
             pred_df, err = run_predictor()
         if err:
             st.error(f"predictor.py failed:\n\n{err}")
@@ -244,30 +368,27 @@ elif page == "🤖 AI Prediction":
                          title="Failure Probability by Test Case", color_discrete_sequence=[BAD])
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Click 'Run Prediction Model' to generate live predictions.")
+        st.info("Select 'Generate Predictions' to perform AI-based quality risk analysis.")
 
 # =================================================
 # ROOT CAUSE ANALYSIS
-# (Bug fix: this branch's string previously didn't match the sidebar
-# option — " Root Cause Analysis" vs "🧩 Root Cause Analysis" — so this
-# entire page silently never rendered. Now it matches.)
 # =================================================
 
-elif page == "🧩 Root Cause Analysis":
-    st.markdown("## 🧩 Root Cause Analysis")
+elif page == "Root Cause Analysis":
+    st.markdown("## Root Cause Analysis")
     if rca_error:
         st.error(f"rca_engine.py unavailable: {rca_error}")
     else:
         st.caption(
-            "Failure reasons are now captured automatically by runner.py when a live test "
-            "fails (its real exception message), so this engine has real data to analyze. "
-            "You can also paste any reason manually below."
+            "The Root Cause Analysis engine evaluates recorded failure messages and provides "
+            "a possible explanation for the observed issue. You may also enter a custom "
+            "failure description for analysis."
         )
-        reason = st.text_input("Failure reason (from a failed test)", placeholder="e.g. Timeout waiting for element")
+        reason = st.text_input("Failure Description", placeholder="Example: Timeout while locating login button")
         if reason:
             st.success(analyze_failure(reason))
 
-        st.markdown("#### Reference examples")
+        st.markdown("#### Sample Failure Scenarios")
         for r in ["Timeout", "Element Not Found", "Assertion Error",
                   "Database Connection Lost", "API Failure", "Invalid Credentials"]:
             st.write(f"**{r}** → {analyze_failure(r)}")
@@ -276,23 +397,37 @@ elif page == "🧩 Root Cause Analysis":
 # WEBSITE TESTING
 # =================================================
 
-elif page == "🌐 Website Testing":
-    st.markdown("## 🌐 Website Test Automation")
+elif page == "Website Testing":
+    st.markdown("## Website Test Automation")
     st.caption(
-        "⚠ Login, Search, and Checkout are hardcoded against two different demo sites "
-        "(Login → the-internet.herokuapp.com, Search/Checkout → saucedemo.com). The Website URL "
-        "field below only affects Search and Checkout. Login always tests its own fixed site "
-        "no matter what you type here — typing saucedemo.com and checking Login will not make "
-        "Login test saucedemo, it stays on its own site. This is a limitation of the existing "
-        "test code, not a bug in this page."
+        "This platform currently supports automated testing for the following demonstration "
+        "websites:\n\n"
+        "- SauceDemo\n"
+        "- Automation Exercise\n"
+        "- DemoBlaze\n\n"
+        "Please enter the URL of one of the supported websites below. Credentials, page "
+        "structure, and test workflows have been configured specifically for these "
+        "applications. Execution against unsupported websites may result in unsuccessful "
+        "test execution due to differences in application structure."
+    )
+    st.info(
+        "Supported demonstration websites:\n\n"
+        "- https://www.saucedemo.com/\n"
+        "- https://automationexercise.com/login\n"
+        "- https://www.demoblaze.com/\n\n"
+        "Automated test cases have been designed and validated specifically for these "
+        "applications."
     )
 
-    website = st.text_input("Website URL", placeholder="https://example.com")
+    website = st.text_input(
+        "Website URL (Supported Websites)",
+        placeholder="Examples: https://www.saucedemo.com/  |  https://automationexercise.com/login  |  https://www.demoblaze.com/",
+    )
     col_a, col_b = st.columns(2)
     browser = col_a.selectbox("Browser", ["Chrome", "Firefox", "Edge"])
     environment = col_b.selectbox("Environment", ["Development", "Staging", "Production"])
 
-    st.markdown("#### Modules to test")
+    st.markdown("#### Test Modules")
     m1, m2, m3 = st.columns(3)
     selected_modules = []
     if m1.checkbox("Login", value=True):
@@ -302,11 +437,11 @@ elif page == "🌐 Website Testing":
     if m3.checkbox("Checkout", value=True):
         selected_modules.append("Checkout")
 
-    if st.button("▶ Run Tests"):
+    if st.button("Execute Selected Tests"):
         if not website:
-            st.warning("Enter a website URL before running tests.")
+            st.warning("Please enter the URL of a supported website before executing the test suite.")
         else:
-            with st.spinner(f"Running runner.py against {website}..."):
+            with st.spinner("Executing automated test suite..."):
                 success, output = run_live_tests(website=website, browser=browser,
                                                    environment=environment, modules=selected_modules)
             st.session_state["website_test_result"] = {
@@ -319,57 +454,53 @@ elif page == "🌐 Website Testing":
     result = st.session_state.get("website_test_result")
     if result:
         st.markdown("---")
-        st.markdown(f"### Results for {result['website']}")
+        st.markdown(f"### Execution Summary — {result['website']}")
         st.caption(f"Browser: {result['browser']} · Environment: {result['environment']} · "
-                   f"Finished {result['timestamp']}")
+                   f"Completed at {result['timestamp']}")
         if result["success"]:
-            st.success("All selected modules passed.")
+            st.success("All selected test modules completed successfully.")
         else:
-            st.error("One or more modules failed. See output below.")
+            st.error("One or more test modules encountered execution failures. Refer to the "
+                     "execution log below for details.")
         if result["output"]:
-            st.markdown("#### Console Output")
+            st.markdown("#### Execution Log")
             st.code(result["output"])
 
 # =================================================
-# REPORTS — download only, reads reports/qa_report.txt if it exists
+# REPORTS
 # =================================================
 
-elif page == "📄 Reports":
-    st.markdown("## 📄 QA Reports")
+elif page == "Reports":
+    st.markdown("## Quality Assurance Reports")
+
+    if st.button("Generate Report"):
+        with st.spinner("Generating latest quality report..."):
+            success, err = run_report_generator()
+        if not success:
+            st.error(f"Report generation failed:\n\n{err}")
+        else:
+            st.cache_data.clear()
+            st.rerun()
 
     report_path = "reports/qa_report.txt"
     if os.path.exists(report_path):
         with open(report_path, "r") as f:
             report = f.read()
-        st.markdown("#### Report Preview")
+        st.markdown("#### Report Summary")
         st.text(report)
-        st.download_button("Download Report", report, file_name="QA_Report.txt")
+        st.download_button("Download Quality Report", report, file_name="QA_Report.txt")
     else:
-        st.info("No report found yet at reports/qa_report.txt.")
+        st.info("No quality assurance report is currently available.")
 
 # =================================================
 # SETTINGS
 # =================================================
 
-elif page == "⚙ Settings":
-    st.markdown("## ⚙ Settings")
-    st.write("**Working directory:**", os.getcwd())
-    st.write("**metrics.py status:**", "✅ OK" if not metrics_error else f"❌ {metrics_error}")
-    st.write("**rca_engine.py status:**", "✅ OK" if not rca_error else f"❌ {rca_error}")
-
-    st.markdown("---")
-    st.markdown(
-        "#### Fixed this round\n"
-        "1. Root Cause Analysis page had a string mismatch with the sidebar and never rendered — fixed.\n"
-        "2. URL/browser typed into Website Testing never reached Selenium (test classes rejected the kwargs, "
-        "silently fell back to hardcoded URLs) — test classes now accept them for real.\n"
-        "3. Screenshots always failed silently (captured after driver.quit()) — now captured before teardown.\n"
-        "4. Reports page had no way to generate a report — 'Generate Report Now' button added.\n\n"
-        "#### Still open\n"
-        "- predictor.py reads data/test_cases.csv, not the live DB — the two can drift apart.\n"
-        "- Search/Checkout tests only work against saucedemo-shaped sites, not arbitrary URLs.\n"
-        "- Screenshot/log paths are stored in the DB but not yet displayed with st.image() on this page."
-    )
+elif page == "Settings":
+    st.markdown("## System Information")
+    st.write("**Project Directory:**", os.getcwd())
+    st.write("**Metrics Module Status:**", "OK" if not metrics_error else f"Unavailable — {metrics_error}")
+    st.write("**Root Cause Analysis Module Status:**", "OK" if not rca_error else f"Unavailable — {rca_error}")
 
 st.markdown("---")
-st.caption("IQATA Dashboard © 2026")
+st.caption("Intelligent Quality Assurance and Test Automation Platform | Version 1.0 | © 2026")

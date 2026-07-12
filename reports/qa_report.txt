@@ -1,12 +1,12 @@
 ==================================================
 INTELLIGENT QA AUTOMATION REPORT
 ==================================================
-Generated On : 2026-07-10 13:09:54.770490
+Generated On : 2026-07-12 19:18:03.559130
 
 TEST SUMMARY
 --------------------------------------------------
-Total Test Cases       : 50
-Total Test Runs        : 2060
+Total Test Cases       : 150
+Total Test Runs        : 6206
 
 Execution Source
 --------------------------------------------------
@@ -19,36 +19,36 @@ AI DEFECT PREDICTION
 --------------------------------------------------
 Checkout Test : LOW RISK (21.0% failure probability)
 --------------------------------------------------
-Login Test         FAIL   18.23 sec
-Search Test        FAIL   10.31 sec
-Checkout Test      FAIL   17.34 sec
-Passed Tests           : 1630
-Failed Tests           : 430
-Pass Rate              : 79.13 %
-Failure Rate           : 20.87 %
-Average Execution Time : 4.58 sec
+Checkout Test      PASS   10.29 sec
+Checkout Test      PASS   16.50 sec
+Checkout Test      PASS   14.24 sec
+Passed Tests           : 4961
+Failed Tests           : 1245
+Pass Rate              : 79.94 %
+Failure Rate           : 20.06 %
+Average Execution Time : 4.56 sec
 
 BROWSER DISTRIBUTION
 --------------------------------------------------
-Chrome          : 17
-Edge            : 13
-Firefox         : 20
+Chrome          : 51
+Edge            : 39
+Firefox         : 60
 
 ENVIRONMENT DISTRIBUTION
 --------------------------------------------------
-Development     : 16
-Production      : 19
-Staging         : 15
+Development     : 48
+Production      : 57
+Staging         : 45
 
 MODULE DISTRIBUTION
 --------------------------------------------------
-Authentication       : 5
-Cart                 : 3
-Checkout             : 10
-Notifications        : 6
-Orders               : 6
-Payment              : 2
-Profile              : 4
-Reports              : 7
-Search               : 2
-Settings             : 5
+Authentication       : 15
+Cart                 : 9
+Checkout             : 30
+Notifications        : 18
+Orders               : 18
+Payment              : 6
+Profile              : 12
+Reports              : 21
+Search               : 6
+Settings             : 15

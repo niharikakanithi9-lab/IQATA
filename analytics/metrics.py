@@ -1,10 +1,18 @@
+import config 
+from config import DATABASE_TYPE, SQLITE_DB, AZURE_SQL_CONNECTION
 from database.sqlite_db import SQLiteDB
+from database.azure_sql import AzureSQL
 
 
 class Metrics:
 
     def __init__(self):
-        self.db = SQLiteDB()
+
+        if DATABASE_TYPE == "azure":
+            self.db = AzureSQL(AZURE_SQL_CONNECTION)
+        else:
+            self.db = SQLiteDB(SQLITE_DB)
+
         self.db.connect()
 
     def total_test_cases(self):
@@ -54,31 +62,25 @@ class Metrics:
         return round(avg, 2)
 
     def browser_statistics(self):
-        return self.db.fetchall(
-            """
+        return self.db.fetchall("""
             SELECT browser, COUNT(*)
             FROM test_cases
             GROUP BY browser
-            """
-        )
+        """)
 
     def environment_statistics(self):
-        return self.db.fetchall(
-            """
+        return self.db.fetchall("""
             SELECT environment, COUNT(*)
             FROM test_cases
             GROUP BY environment
-            """
-        )
+        """)
 
     def module_statistics(self):
-        return self.db.fetchall(
-            """
+        return self.db.fetchall("""
             SELECT module, COUNT(*)
             FROM test_cases
             GROUP BY module
-            """
-        )
+        """)
 
     def close(self):
         self.db.close()

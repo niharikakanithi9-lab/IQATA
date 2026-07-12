@@ -1,8 +1,4 @@
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
-from tests.base_test import BaseTest
+from tests.base_test import BaseTest, get_site_credentials
 
 
 class CheckoutTest(BaseTest):
@@ -13,31 +9,25 @@ class CheckoutTest(BaseTest):
         self.setup()
 
         try:
-            wait = WebDriverWait(self.driver, 10)
-
             target_url = self.url or self.DEFAULT_URL
             self.driver.get(target_url)
 
-            wait.until(
-                EC.presence_of_element_located((By.ID, "user-name"))
-            ).send_keys("standard_user")
+            username, password = get_site_credentials(target_url)
 
-            self.driver.find_element(By.ID, "password").send_keys("secret_sauce")
-            self.driver.find_element(By.ID, "login-button").click()
+            if not self.profile_login(username, password):
+                print("FAIL: Checkout Test Failed (login rejected — check credentials for this site)")
+                self.capture_screenshot("checkout_test")
+                return False
 
-            wait.until(
-                EC.presence_of_element_located((By.CLASS_NAME, "inventory_item"))
-            )
+            if not self.profile_add_first_product_to_cart():
+                print("FAIL: Checkout Test Failed (could not add product to cart)")
+                self.capture_screenshot("checkout_test")
+                return False
 
-            self.driver.find_element(
-                By.ID, "add-to-cart-sauce-labs-backpack"
-            ).click()
-
-            self.driver.find_element(By.CLASS_NAME, "shopping_cart_link").click()
-
-            wait.until(
-                EC.presence_of_element_located((By.CLASS_NAME, "cart_item"))
-            )
+            if not self.profile_go_to_cart_and_verify():
+                print("FAIL: Checkout Test Failed (cart did not show item)")
+                self.capture_screenshot("checkout_test")
+                return False
 
             print("PASS: Checkout Test Passed")
             return True

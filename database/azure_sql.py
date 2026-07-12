@@ -11,20 +11,27 @@ class AzureSQL(BaseDatabase):
         self.cursor = None
 
     def connect(self):
-        self.connection = pyodbc.connect(self.connection_string)
-        self.cursor = self.connection.cursor()
+        if self.connection is None:
+            self.connection = pyodbc.connect(self.connection_string)
+            self.cursor = self.connection.cursor()
 
     def execute(self, query, params=()):
+        self.connect()
         self.cursor.execute(query, params)
         self.connection.commit()
 
     def fetchall(self, query, params=()):
+        self.connect()
         self.cursor.execute(query, params)
         return self.cursor.fetchall()
 
     def fetchone(self, query, params=()):
+        self.connect()
         self.cursor.execute(query, params)
         return self.cursor.fetchone()
 
     def close(self):
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+            self.cursor = None

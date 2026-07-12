@@ -1,4 +1,3 @@
-
 import os
 
 # ==========================================
@@ -6,21 +5,24 @@ import os
 # ==========================================
 
 # Choose: sqlite or azure
-DATABASE_TYPE = "sqlite"
+DATABASE_TYPE = "azure"
 
-# SQLite Database
+# SQLite Database (kept for backup/testing)
 SQLITE_DB = "qa_platform.db"
+
 
 # Azure SQL Database
 AZURE_SQL_CONNECTION = (
-    "DRIVER={ODBC Driver 18 for SQL Server};"
-    "SERVER=your_server.database.windows.net;"
-    "DATABASE=QAPlatform;"
-    "UID=your_username;"
-    "PWD=your_password;"
+    "Driver={ODBC Driver 18 for SQL Server};"
+    "Server=tcp:iqata-server.database.windows.net,1433;"
+    "Database=iqata-db;"
+    "Uid=iqata-admin;"
+    "Pwd=nihakanika-1028;"
     "Encrypt=yes;"
     "TrustServerCertificate=no;"
+    "Connection Timeout=30;"
 )
+
 
 # ==========================================
 # Azure Blob Storage
@@ -30,11 +32,13 @@ BLOB_CONNECTION_STRING = "your_blob_connection_string"
 
 BLOB_CONTAINER = "screenshots"
 
+
 # ==========================================
 # Machine Learning
 # ==========================================
 
 MODEL_PATH = "ml/model.pkl"
+
 
 # ==========================================
 # Screenshot Folder
@@ -42,8 +46,8 @@ MODEL_PATH = "ml/model.pkl"
 
 SCREENSHOT_FOLDER = "screenshots"
 
-# Create folder automatically
 os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
+
 
 # ==========================================
 # Reports
