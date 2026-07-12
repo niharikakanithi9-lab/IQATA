@@ -1,5 +1,7 @@
 from datetime import datetime
+from config import DATABASE_TYPE, SQLITE_DB, AZURE_SQL_CONNECTION
 from database.sqlite_db import SQLiteDB
+from database.azure_sql import AzureSQL
 from analytics.metrics import Metrics
 
 import joblib
@@ -77,10 +79,14 @@ class QAReport:
         f"Checkout Test : {risk} ({probability}% failure probability)"
         )   
         report.append("-" * 50)
-        db = SQLiteDB()
+        if DATABASE_TYPE == "azure":
+            db = AzureSQL(AZURE_SQL_CONNECTION)
+        else:
+            db = SQLiteDB(SQLITE_DB)
         db.connect()
         latest = db.fetchall("""
-SELECT tc.name,
+SELECT TOP 3
+       tc.name,
        tr.status,
        tr.execution_time
 FROM test_runs tr
@@ -93,8 +99,7 @@ WHERE tc.name IN
 'Checkout Test'
 )
 ORDER BY tr.id DESC
-LIMIT 3
-        """)
+""")
 
         for name, status, exec_time in reversed(latest):
             report.append(f"{name:<18} {status:<6} {exec_time:.2f} sec")

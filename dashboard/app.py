@@ -53,6 +53,88 @@ def safe_call(fn, default=0):
         return default
 
 
+def normalize_stats(data, first_col_name):
+    """
+    Normalize SQL / pandas analytics output into:
+
+    | first_col_name | Count |
+    """
+
+    columns = [first_col_name, "Count"]
+
+    if data is None:
+        return pd.DataFrame(columns=columns)
+
+    # Convert pyodbc.Row / SQL rows
+    if isinstance(data, (list, tuple)):
+
+        if len(data) == 0:
+            return pd.DataFrame(columns=columns)
+
+        cleaned = []
+
+        for row in data:
+
+            # pyodbc.Row
+            if hasattr(row, "_asdict"):
+                row = list(row)
+
+            elif hasattr(row, "__getitem__") and not isinstance(row, (str, bytes)):
+                row = list(row)
+
+            else:
+                row = [row]
+
+            if len(row) >= 2:
+                cleaned.append(
+                    [
+                        str(row[0]),
+                        int(row[1])
+                    ]
+                )
+            else:
+                cleaned.append(
+                    [
+                        str(row[0]),
+                        1
+                    ]
+                )
+
+        return pd.DataFrame(
+            cleaned,
+            columns=columns
+        )
+
+    # pandas dataframe
+    if isinstance(data, pd.DataFrame):
+
+        df = data.copy()
+
+        if len(df.columns) == 1:
+            df["Count"] = 1
+
+        df = df.iloc[:, :2]
+
+        df.columns = columns
+
+        df[first_col_name] = df[first_col_name].astype(str)
+        df["Count"] = df["Count"].astype(int)
+
+        return df
+
+    # pandas series
+    if isinstance(data, pd.Series):
+
+        return pd.DataFrame(
+            {
+                first_col_name: data.astype(str),
+                "Count": 1
+            }
+        )
+
+    return pd.DataFrame(columns=columns)
+
+
 def _subprocess_env():
     env = os.environ.copy()
     project_root = os.getcwd()
@@ -176,13 +258,23 @@ if page == "Dashboard":
         else:
             left.info("No rows in test_runs yet — run tests to populate this.")
 
-        mod_stats = safe_call(metrics.module_statistics, [])
-        if mod_stats:
-            mod_df = pd.DataFrame(mod_stats, columns=["Module", "Count"])
-            right.plotly_chart(px.bar(mod_df, x="Module", y="Count", title="Test Cases by Module",
-                                       color_discrete_sequence=[ACCENT]), use_container_width=True)
+        mod_df = normalize_stats(
+            safe_call(metrics.module_statistics, []),
+            "Module"
+        )
+        if not mod_df.empty:
+            right.plotly_chart(
+                px.bar(
+                    mod_df,
+                    x="Module",
+                    y="Count",
+                    title="Test Cases by Module",
+                    color_discrete_sequence=[ACCENT]
+                ),
+                use_container_width=True
+            )
         else:
-            right.info("No module_statistics data returned.")
+            right.info("No module statistics available.")
 
     st.markdown("### Test Execution")
     if st.button("Execute Test Suite"):
@@ -210,19 +302,38 @@ elif page == "Analytics":
         st.error(f"metrics.py unavailable: {metrics_error}")
     else:
         c1, c2 = st.columns(2)
-        browser_stats = safe_call(metrics.browser_statistics, [])
-        if browser_stats:
-            bdf = pd.DataFrame(browser_stats, columns=["Browser", "Count"])
-            c1.plotly_chart(px.bar(bdf, x="Browser", y="Count", title="Browser Distribution",
-                                    color_discrete_sequence=[ACCENT]), use_container_width=True)
+        bdf = normalize_stats(
+            safe_call(metrics.browser_statistics, []),
+            "Browser"
+        )
+        if not bdf.empty:
+            c1.plotly_chart(
+                px.bar(
+                    bdf,
+                    x="Browser",
+                    y="Count",
+                    title="Browser Distribution",
+                    color_discrete_sequence=[ACCENT]
+                ),
+                use_container_width=True
+            )
         else:
             c1.info("No browser statistics are currently available.")
 
-        env_stats = safe_call(metrics.environment_statistics, [])
-        if env_stats:
-            edf = pd.DataFrame(env_stats, columns=["Environment", "Count"])
-            c2.plotly_chart(px.pie(edf, values="Count", names="Environment",
-                                    title="Environment Distribution"), use_container_width=True)
+        edf = normalize_stats(
+            safe_call(metrics.environment_statistics, []),
+            "Environment"
+        )
+        if not edf.empty:
+            c2.plotly_chart(
+                px.pie(
+                    edf,
+                    values="Count",
+                    names="Environment",
+                    title="Environment Distribution"
+                ),
+                use_container_width=True
+            )
         else:
             c2.info("No environment statistics are currently available.")
 
